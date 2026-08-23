@@ -31,6 +31,7 @@ Make me website for internal task tracker and a dashbord. Board that contains ma
 - 2026-08-23: Added task descriptions on cards and detail views, description editing, local attachment selection for new tasks, descriptions, and comments.
 - 2026-08-23: Added live dashboard deadline breakdown for tasks due this week, due this month, and overdue tasks.
 - 2026-08-23: Added Super Admin/Admin full dashboards, Member assigned-task dashboards, public board visibility, Admin board creation, required-reason cancellation, cross-board linked cards, and task change-log tabs.
+- 2026-08-23: Reworked the visual template from futuristic dark mode to a calm casual-business workspace with light neutrals, green/blue accents, and clearer business-readable contrast.
 
 ## Prioritized backlog
 - P0: Connect auth and workspace entities to MongoDB-backed API.
