@@ -1,0 +1,11 @@
+node_modules
+.git
+.env
+build
+__pycache__
+*.pyc
+.pytest_cache
+.ruff_cache
+.emergent
+test_reports
+dist

@@ -20,6 +20,8 @@ from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field
 
+from emailer import notify_email
+
 # ---------- Config ----------
 MONGO_URL = os.environ["MONGO_URL"]
 DB_NAME = os.environ["DB_NAME"]
@@ -231,24 +233,45 @@ async def notify(user_ids: List[str], type_: str, message: str,
                  actor: Optional[dict] = None):
     if not user_ids:
         return
-    docs = []
+    # de-duplicate and drop the actor
+    seen: set = set()
+    targets: List[str] = []
     for uid in user_ids:
         if not uid:
             continue
-        if actor and str(actor["id"]) == str(uid):
+        s = str(uid)
+        if actor and str(actor["id"]) == s:
             continue
-        docs.append({
-            "user_id": ObjectId(uid),
-            "type": type_,
-            "message": message,
-            "task_id": ObjectId(task_id) if task_id else None,
-            "board_id": ObjectId(board_id) if board_id else None,
-            "actor_name": actor.get("name") if actor else None,
-            "read": False,
-            "created_at": now_iso(),
-        })
-    if docs:
-        await db.notifications.insert_many(docs)
+        if s in seen:
+            continue
+        seen.add(s)
+        targets.append(s)
+    if not targets:
+        return
+    docs = [{
+        "user_id": ObjectId(uid),
+        "type": type_,
+        "message": message,
+        "task_id": ObjectId(task_id) if task_id else None,
+        "board_id": ObjectId(board_id) if board_id else None,
+        "actor_name": actor.get("name") if actor else None,
+        "read": False,
+        "created_at": now_iso(),
+    } for uid in targets]
+    await db.notifications.insert_many(docs)
+    # Optional email fan-out (silent no-op if SendGrid isn't configured)
+    task_title = ""
+    if task_id:
+        t = await db.tasks.find_one({"_id": ObjectId(task_id)}, {"title": 1})
+        task_title = (t or {}).get("title", "")
+    if task_title and actor:
+        for uid in targets:
+            u = await db.users.find_one({"_id": ObjectId(uid)}, {"email": 1})
+            if u and u.get("email"):
+                try:
+                    notify_email(u["email"], actor["name"], type_, task_title, task_id)
+                except Exception as e:  # noqa: BLE001
+                    log.warning("Email notify failed: %s", e)
 
 def parse_mentions(body: str) -> List[str]:
     return re.findall(r"@([A-Za-z0-9_.-]+)", body or "")
@@ -517,6 +540,7 @@ async def update_task(task_id: str, payload: TaskUpdate, user: dict = Depends(ge
         if updates["stage"] == "Canceled" and not updates.get("cancel_reason") and not t.get("cancel_reason"):
             raise HTTPException(400, "cancel_reason required when moving to Canceled")
         changes_log.append(f"Moved to {updates['stage']}")
+        # notify the assignee (if any) about the move; treat this as a 'move' event for email
         if t.get("assignee_id"):
             notify_users.add(str(t["assignee_id"]))
     if "title" in updates and updates["title"] != t.get("title"):

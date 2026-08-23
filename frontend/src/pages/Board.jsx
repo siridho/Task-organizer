@@ -8,6 +8,8 @@ import { toast } from "sonner";
 export default function Board({ board, users, me, onOpenTask, onAddTask, onBoardChanged, search }) {
   const [tasks, setTasks] = useState([]);
   const [showSettings, setShowSettings] = useState(false);
+  const [dragTaskId, setDragTaskId] = useState(null);
+  const [dragOverStage, setDragOverStage] = useState(null);
   const isAdmin = me.role === "super_admin" || me.role === "admin";
   const isBoardEditor = isAdmin || (board.members || []).some(
     (m) => String(m.user_id) === me.id && (m.board_role === "editor" || m.board_role === "owner")
@@ -52,6 +54,17 @@ export default function Board({ board, users, me, onOpenTask, onAddTask, onBoard
     return acc;
   }, {});
 
+  const handleDrop = (e, stage) => {
+    e.preventDefault();
+    setDragOverStage(null);
+    const id = e.dataTransfer.getData("text/task-id") || dragTaskId;
+    if (!id) return;
+    const task = tasks.find((t) => t.id === id);
+    if (!task || task.stage === stage) return;
+    moveTask(task, stage);
+    setDragTaskId(null);
+  };
+
   return (
     <>
       <div className="page-heading board-heading reveal">
@@ -81,8 +94,12 @@ export default function Board({ board, users, me, onOpenTask, onAddTask, onBoard
 
       <div className="kanban reveal">
         {displayStages.map((stage) => (
-          <div className="kanban-column" key={stage}
-               data-testid={`column-${stage.toLowerCase().replace(/\s+/g, "-")}`}>
+          <div className={`kanban-column ${dragOverStage === stage ? "drag-over" : ""}`}
+               key={stage}
+               data-testid={`column-${stage.toLowerCase().replace(/\s+/g, "-")}`}
+               onDragOver={(e) => { if (isBoardEditor) { e.preventDefault(); setDragOverStage(stage); } }}
+               onDragLeave={() => setDragOverStage((s) => s === stage ? null : s)}
+               onDrop={(e) => isBoardEditor && handleDrop(e, stage)}>
             <div className="column-head">
               <div>
                 <span className="stage-dot"/>
@@ -97,11 +114,21 @@ export default function Board({ board, users, me, onOpenTask, onAddTask, onBoard
                           stages={stages}
                           isEditor={isBoardEditor}
                           users={users}
+                          isDragging={dragTaskId === task.id}
+                          onDragStart={(e) => {
+                            if (!isBoardEditor) return;
+                            e.dataTransfer.setData("text/task-id", task.id);
+                            e.dataTransfer.effectAllowed = "move";
+                            setDragTaskId(task.id);
+                          }}
+                          onDragEnd={() => { setDragTaskId(null); setDragOverStage(null); }}
                           onOpen={() => onOpenTask(task.id)}
                           onMove={(s) => moveTask(task, s)}/>
               ))}
               {topLevel.filter((t) => t.stage === stage).length === 0 && (
-                <p className="muted small-text">No tasks</p>
+                <p className="muted small-text">
+                  {dragOverStage === stage ? "Drop here to move" : "No tasks"}
+                </p>
               )}
             </div>
           </div>
@@ -120,12 +147,18 @@ export default function Board({ board, users, me, onOpenTask, onAddTask, onBoard
   );
 }
 
-function TaskCard({ task, subtaskCount, stages, isEditor, users, onOpen, onMove }) {
+function TaskCard({ task, subtaskCount, stages, isEditor, users, onOpen, onMove,
+                    isDragging, onDragStart, onDragEnd }) {
   const stageOptions = stages.includes("Canceled") ? stages : [...stages, "Canceled"];
   const assigneeName = users.find((u) => u.id === task.assignee_id)?.name || "Unassigned";
   const initials = assigneeName === "Unassigned" ? "—" : assigneeName.split(" ").map((n) => n[0]).join("").slice(0, 2);
   return (
-    <article className="task-card" data-testid={`task-card-${task.id}`} onClick={onOpen}>
+    <article className={`task-card ${isDragging ? "dragging" : ""}`}
+             data-testid={`task-card-${task.id}`}
+             draggable={isEditor}
+             onDragStart={onDragStart}
+             onDragEnd={onDragEnd}
+             onClick={onOpen}>
       <div className="task-card-top">
         <span className={`priority ${(task.priority || "medium").toLowerCase()}`}>{task.priority}</span>
         <small>{task.due_date || "—"}</small>

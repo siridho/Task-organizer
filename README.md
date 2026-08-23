@@ -11,11 +11,13 @@ A full-stack task and board management app with role-based dashboards, customiza
 - **Auth** — JWT httpOnly cookies (register/login/logout/me).
 - **Roles** — Super Admin, Admin, Member (Super Admin can promote/demote from Members & roles page).
 - **Boards** — Configurable stages per board, board-level member roster (owner/editor/viewer).
-- **Tasks** — CRUD, drag stage via dropdown, priority, due date, assignee, description, attachments.
+- **Tasks** — CRUD, priority, due date, assignee, description, attachments.
+- **Drag-and-drop** — HTML5 native drag between Kanban columns for instant stage moves.
 - **Subtasks** — Any task can become a subtask (or be promoted back) of another task.
 - **Cancellation** — Requires a reason; entry added to the change log.
 - **Comments + @mentions** — `@localpart` or `@name.slug` parsed into a real user; notification fired.
 - **Notifications** — assign / mention / comment / edit / move — with unread badge in sidebar.
+- **Email alerts** — Optional SendGrid delivery for the same events. Silently no-ops when key is blank.
 - **Dashboard** — visible/active/due-this-week/due-this-month/overdue/completed metrics + per-board rollups.
 - **File attachments** — real uploads via Emergent Object Storage (proxied download endpoint).
 
@@ -75,6 +77,11 @@ ADMIN_EMAIL="admin@nexus.local"
 ADMIN_PASSWORD="demo123"
 FRONTEND_URL="https://your-frontend-url"      # exact origin used for CORS with credentials
 EMERGENT_LLM_KEY="sk-emergent-xxxxxxxxxxxx"    # required for Object Storage file uploads
+
+# SendGrid email alerts (leave blank to disable — in-app notifications still work)
+SENDGRID_API_KEY=""
+SENDGRID_SENDER=""                              # verified sender e.g. notifications@yourdomain.com
+APP_URL=""                                      # link included in email bodies
 ```
 
 Generate a JWT secret:
@@ -151,59 +158,21 @@ To deploy from Emergent, just click **Deploy** in the top-right of the workspace
 
 ### Option A — Docker Compose (recommended)
 
-Create a `docker-compose.yml` next to the repo:
+A ready-to-use `docker-compose.yml`, backend `Dockerfile`, and frontend `Dockerfile` are included at the repo root.
 
-```yaml
-version: "3.9"
-services:
-  mongo:
-    image: mongo:7
-    volumes: [ "mongo_data:/data/db" ]
+1. Copy the example envs and fill in secrets:
+   ```bash
+   cp backend/.env.example backend/.env
+   cp frontend/.env.example frontend/.env
+   # edit backend/.env — set JWT_SECRET, EMERGENT_LLM_KEY, (optional) SENDGRID_*
+   ```
+2. Bring the stack up:
+   ```bash
+   docker compose up --build
+   ```
+3. Visit http://localhost:3000 — the login form is pre-filled with the seeded super admin.
 
-  backend:
-    build: ./backend
-    env_file: ./backend/.env
-    depends_on: [ mongo ]
-    ports: [ "8001:8001" ]
-
-  frontend:
-    build: ./frontend
-    env_file: ./frontend/.env
-    ports: [ "3000:3000" ]
-
-volumes:
-  mongo_data:
-```
-
-Minimal `backend/Dockerfile`:
-```dockerfile
-FROM python:3.11-slim
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-COPY . .
-CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8001"]
-```
-
-Minimal `frontend/Dockerfile` (build + serve with `serve`):
-```dockerfile
-FROM node:20-alpine as build
-WORKDIR /app
-COPY package.json yarn.lock ./
-RUN yarn install --frozen-lockfile
-COPY . .
-RUN yarn build
-FROM node:20-alpine
-WORKDIR /app
-RUN npm i -g serve
-COPY --from=build /app/build ./build
-CMD ["serve", "-s", "build", "-l", "3000"]
-```
-
-Then:
-```bash
-docker compose up --build
-```
+The compose file starts three services: **mongo** (with a named volume `mongo_data`), **backend** (FastAPI on `:8001`), and **frontend** (static React served with `serve` on `:3000`). The backend `MONGO_URL` is overridden inside compose to point at the `mongo` service.
 
 ### Option B — Split deploy (Render/Railway/Fly + Vercel/Netlify)
 

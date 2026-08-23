@@ -220,6 +220,11 @@ input, select, textarea { outline: none; }
   border-radius: 10px; cursor: pointer; transition: transform .18s, box-shadow .18s, border-color .18s;
 }
 .task-card:hover { transform: translateY(-2px); border-color: var(--violet); box-shadow: 0 6px 14px rgba(63,111,94,0.08); }
+.task-card.dragging { opacity: 0.5; transform: rotate(1.5deg); cursor: grabbing; }
+.task-card[draggable="true"] { cursor: grab; }
+.task-card[draggable="true"]:active { cursor: grabbing; }
+.kanban-column.drag-over { background: rgba(63,111,94,0.06); border-radius: 10px; }
+.kanban-column.drag-over .task-list { min-height: 120px; border: 2px dashed rgba(63,111,94,0.35); border-radius: 8px; padding: 6px; }
 .task-card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .task-card-top small { color: var(--muted); font-size: 10px; }
 .priority { font: 700 9px var(--font-mono); text-transform: uppercase; padding: 3px 7px; border-radius: 4px; }
