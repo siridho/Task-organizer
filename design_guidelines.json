@@ -1,0 +1,68 @@
+{
+  "app_name": "NexusTask Enterprise & Team Tracker",
+  "app_type": "hybrid_fullstack",
+  "theme": "dark_first_sleek",
+  "typography": {
+    "heading_font": "Outfit, sans-serif",
+    "body_font": "Plus Jakarta Sans, sans-serif",
+    "mono_font": "JetBrains Mono, monospace"
+  },
+  "colors": {
+    "background": "#090A0F",
+    "surface": "#12141C",
+    "surface_highlight": "#1A1D29",
+    "primary": "#6366F1",
+    "primary_hover": "#4F46E5",
+    "accent": "#10B981",
+    "warning": "#F59E0B",
+    "danger": "#EF4444",
+    "text_primary": "#F8FAFC",
+    "text_secondary": "#94A3B8",
+    "border": "#272A37"
+  },
+  "component_path": "/app/frontend/src",
+  "image_urls": [
+    {
+      "category": "workspace_hero",
+      "url": "https://images.unsplash.com/photo-1766642793344-34196c406643?auto=format&fit=crop&q=85&w=1200",
+      "description": "Minimalist professional desk setup representing productivity and dashboard control"
+    },
+    {
+      "category": "analytics_desk",
+      "url": "https://images.pexels.com/photos/31650949/pexels-photo-31650949.jpeg?auto=format&fit=crop&q=85&w=1200",
+      "description": "Trading and project analytics desk with visual charts and metrics"
+    },
+    {
+      "category": "tablet_metrics",
+      "url": "https://images.pexels.com/photos/106344/pexels-photo-106344.jpeg?auto=format&fit=crop&q=85&w=1200",
+      "description": "Tablet showing data analytics on wooden office desk"
+    }
+  ],
+  "features": [
+    "Demo mode with selectable sample users (Super User, Board Master, Team Member)",
+    "Email/password authentication and registration with persistent session",
+    "Multi-board management with customizable workflow stages (Backlog -> To Do -> In Progress -> Review -> Done)",
+    "Advanced Task & Subtask CRUD with subtask checklist progress tracking",
+    "Task <-> Subtask bidirectional conversion tool",
+    "Interactive Kanban board with card drag/drop or stage selectors, filtering, and search",
+    "Member role and permissions administration (Super User, Board Master, Member)",
+    "Comprehensive Dashboard emphasizing board health and member workload balance",
+    "Task assignment, due date management, priority flagging, and attachments",
+    "Real-time comments with member @mentions and notification center with unread badges"
+  ],
+  "instructions_to_main_agent": [
+    "Build a robust React fullstack application utilizing the existing FastAPI backend or mock storage service with localStorage persistence for seamless demo testing.",
+    "Implement the full authentication flow including Demo Mode user switcher for Super User, Board Master, and Regular Member.",
+    "Ensure all interactive components (buttons, dropdowns, inputs, tabs, modals) have test-ids and accessible ARIA attributes.",
+    "Use Tailwind CSS for styling with a sophisticated dark obsidian and indigo/emerald accent palette (#090A0F, #12141C, #6366F1).",
+    "Build Kanban board with draggable/movable cards across customizable stages and subtask management.",
+    "Build the dual-focus dashboard tracking board health (completion rates, bottleneck stages) and member workload (assigned active tasks, overdue items).",
+    "Include notification center with real-time in-app badge counter and simulation of email alerts."
+  ],
+  "universal_guidelines": [
+    "Do not use transparent headers without blur or solid background.",
+    "Ensure all interactive elements have explicit text color on hover and focus.",
+    "Use generous spacing and clear typographic hierarchy.",
+    "Include data-testid attributes on all key interactive elements."
+  ]
+}
