@@ -29,6 +29,7 @@ Make me website for internal task tracker and a dashbord. Board that contains ma
 - 2026-08-23: Added responsive styling, motion, accessible labels, and unique data-testid hooks for critical flows.
 - 2026-08-23: Added working comment feedback/count updates, mark-all-read state, mobile sidebar opening, role-aware greetings, and `/api/health`.
 - 2026-08-23: Added task descriptions on cards and detail views, description editing, local attachment selection for new tasks, descriptions, and comments.
+- 2026-08-23: Added live dashboard deadline breakdown for tasks due this week, due this month, and overdue tasks.
 
 ## Prioritized backlog
 - P0: Connect auth and workspace entities to MongoDB-backed API.
