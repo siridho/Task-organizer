@@ -30,10 +30,12 @@ Make me website for internal task tracker and a dashbord. Board that contains ma
 - 2026-08-23: Added working comment feedback/count updates, mark-all-read state, mobile sidebar opening, role-aware greetings, and `/api/health`.
 - 2026-08-23: Added task descriptions on cards and detail views, description editing, local attachment selection for new tasks, descriptions, and comments.
 - 2026-08-23: Added live dashboard deadline breakdown for tasks due this week, due this month, and overdue tasks.
+- 2026-08-23: Added Super Admin/Admin full dashboards, Member assigned-task dashboards, public board visibility, Admin board creation, required-reason cancellation, cross-board linked cards, and task change-log tabs.
 
 ## Prioritized backlog
 - P0: Connect auth and workspace entities to MongoDB-backed API.
 - P0: Persist boards, tasks, members, comments, and notifications server-side.
+- P0: Persist role permissions, cancellation reasons, linked cards, and change logs through the authenticated API.
 - P1: Add board stage editor and member/role administration screens.
 - P1: Add true drag-and-drop ordering and task/subtask conversion logic.
 - P1: Replace local attachment metadata with authenticated object storage and file references.
