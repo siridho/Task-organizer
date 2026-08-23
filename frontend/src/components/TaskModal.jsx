@@ -10,10 +10,13 @@ export default function TaskModal({ taskId, me, boards, users, onClose, onChange
   const [allTasks, setAllTasks] = useState([]);
   const [tab, setTab] = useState("overview");
   const [comment, setComment] = useState("");
+  const [mentionQuery, setMentionQuery] = useState(null); // null = hidden, "" = just typed @
+  const [mentionIndex, setMentionIndex] = useState(0);
   const [cancelReason, setCancelReason] = useState("");
   const [showCancel, setShowCancel] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
+  const commentInputRef = useRef(null);
 
   const isAdmin = me.role === "super_admin" || me.role === "admin";
   const board = task ? boards.find((b) => b.id === task.board_id) : null;
@@ -73,9 +76,28 @@ export default function TaskModal({ taskId, me, boards, users, onClose, onChange
     try {
       await api.post(`/tasks/${taskId}/comments`, { body: comment.trim() });
       setComment("");
+      setMentionQuery(null);
       toast.success("Comment added");
       load();
     } catch (e) { toast.error(formatError(e)); }
+  };
+
+  const insertMention = (user) => {
+    const el = commentInputRef.current;
+    const slug = mentionSlug(user);
+    const caret = el?.selectionStart ?? comment.length;
+    const before = comment.slice(0, caret).replace(/@([A-Za-z0-9_.-]*)$/, `@${slug} `);
+    const after = comment.slice(caret);
+    const next = before + after;
+    setComment(next);
+    setMentionQuery(null);
+    setTimeout(() => {
+      if (el) {
+        el.focus();
+        const pos = before.length;
+        try { el.setSelectionRange(pos, pos); } catch { /* ignore */ }
+      }
+    }, 0);
   };
 
   const uploadAttachment = async (file) => {
@@ -279,14 +301,57 @@ export default function TaskModal({ taskId, me, boards, users, onClose, onChange
                 </div>
               ))}
             </div>
-            <div className="comment-box">
+            <div className="comment-box mention-wrap">
               <input value={comment}
+                     ref={commentInputRef}
                      data-testid="comment-input"
-                     onChange={(e) => setComment(e.target.value)}
-                     placeholder="Write a comment or @mention someone (e.g. @noah)"/>
+                     onChange={(e) => {
+                       const v = e.target.value;
+                       setComment(v);
+                       // detect trailing @token before caret
+                       const caret = e.target.selectionStart ?? v.length;
+                       const upto = v.slice(0, caret);
+                       const m = upto.match(/@([A-Za-z0-9_.-]*)$/);
+                       if (m) { setMentionQuery(m[1]); setMentionIndex(0); }
+                       else { setMentionQuery(null); }
+                     }}
+                     onKeyDown={(e) => {
+                       if (mentionQuery === null) return;
+                       const matches = filterMentionMatches(users, mentionQuery, me);
+                       if (matches.length === 0) return;
+                       if (e.key === "ArrowDown") { e.preventDefault(); setMentionIndex((i) => (i + 1) % matches.length); }
+                       else if (e.key === "ArrowUp") { e.preventDefault(); setMentionIndex((i) => (i - 1 + matches.length) % matches.length); }
+                       else if (e.key === "Enter" || e.key === "Tab") {
+                         e.preventDefault();
+                         insertMention(matches[mentionIndex]);
+                       } else if (e.key === "Escape") { setMentionQuery(null); }
+                     }}
+                     placeholder="Write a comment — type @ to mention a teammate"/>
               <button className="primary-btn" data-testid="comment-submit" onClick={addComment}>
                 <MessageSquare size={15}/> Send
               </button>
+              {mentionQuery !== null && (() => {
+                const matches = filterMentionMatches(users, mentionQuery, me);
+                if (matches.length === 0) return null;
+                return (
+                  <div className="mention-picker" data-testid="mention-picker">
+                    {matches.slice(0, 6).map((u, i) => (
+                      <button key={u.id}
+                              className={`mention-item ${i === mentionIndex ? "active" : ""}`}
+                              data-testid={`mention-item-${u.id}`}
+                              onMouseDown={(e) => { e.preventDefault(); insertMention(u); }}>
+                        <span className="avatar avatar-violet">
+                          {u.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+                        </span>
+                        <span className="mention-item-body">
+                          <strong>{u.name}</strong>
+                          <small>@{mentionSlug(u)} · {u.email}</small>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
           </>
         )}
@@ -392,4 +457,22 @@ export default function TaskModal({ taskId, me, boards, users, onClose, onChange
 function formatTime(iso) {
   if (!iso) return "";
   try { return new Date(iso).toLocaleString(); } catch { return iso; }
+}
+
+// ---- Mention helpers ----
+function mentionSlug(user) {
+  // Match backend parser preference: prefer email localpart (unambiguous)
+  return (user.email || "").split("@")[0].toLowerCase() ||
+         user.name.trim().toLowerCase().replace(/\s+/g, ".");
+}
+
+function filterMentionMatches(users, query, me) {
+  const q = (query || "").toLowerCase();
+  return users
+    .filter((u) => u.id !== me?.id)
+    .filter((u) => {
+      if (!q) return true;
+      const slug = mentionSlug(u);
+      return slug.startsWith(q) || u.name.toLowerCase().includes(q);
+    });
 }

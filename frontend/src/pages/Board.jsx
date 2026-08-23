@@ -1,7 +1,8 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import api, { formatError } from "../api";
 import {
   CirclePlus, CalendarDays, MessageSquare, Settings2, X, Plus, Trash2, ArrowUp, ArrowDown,
+  Filter as FilterIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -10,6 +11,9 @@ export default function Board({ board, users, me, onOpenTask, onAddTask, onBoard
   const [showSettings, setShowSettings] = useState(false);
   const [dragTaskId, setDragTaskId] = useState(null);
   const [dragOverStage, setDragOverStage] = useState(null);
+  const [filterAssignee, setFilterAssignee] = useState("all");   // "all" | "me" | "unassigned" | userId
+  const [filterPriority, setFilterPriority] = useState("all");   // "all" | "Low" | "Medium" | "High"
+  const [filterDue, setFilterDue] = useState("all");             // "all" | "week" | "month" | "overdue" | "none"
   const isAdmin = me.role === "super_admin" || me.role === "admin";
   const isBoardEditor = isAdmin || (board.members || []).some(
     (m) => String(m.user_id) === me.id && (m.board_role === "editor" || m.board_role === "owner")
@@ -45,14 +49,38 @@ export default function Board({ board, users, me, onOpenTask, onAddTask, onBoard
     } catch (e) { toast.error(formatError(e)); }
   };
 
-  const filtered = search
-    ? tasks.filter((t) => t.title.toLowerCase().includes(search.toLowerCase()))
-    : tasks;
+  const filtered = useMemo(() => {
+    const q = (search || "").toLowerCase();
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const weekEnd = new Date(today); weekEnd.setDate(today.getDate() + 7);
+    const monthEnd = new Date(today); monthEnd.setDate(today.getDate() + 30);
+    const parseD = (s) => { if (!s) return null; const d = new Date(s + "T00:00:00Z"); return isNaN(d) ? null : d; };
+    return tasks.filter((t) => {
+      if (q && !t.title.toLowerCase().includes(q)) return false;
+      if (filterAssignee === "me" && t.assignee_id !== me.id) return false;
+      if (filterAssignee === "unassigned" && t.assignee_id) return false;
+      if (filterAssignee !== "all" && filterAssignee !== "me" && filterAssignee !== "unassigned"
+          && t.assignee_id !== filterAssignee) return false;
+      if (filterPriority !== "all" && t.priority !== filterPriority) return false;
+      if (filterDue !== "all") {
+        const d = parseD(t.due_date);
+        if (filterDue === "none" && d) return false;
+        if (filterDue === "overdue" && (!d || d >= today || t.stage === "Done" || t.stage === "Canceled")) return false;
+        if (filterDue === "week" && (!d || d < today || d > weekEnd)) return false;
+        if (filterDue === "month" && (!d || d < today || d > monthEnd)) return false;
+      }
+      return true;
+    });
+  }, [tasks, search, filterAssignee, filterPriority, filterDue, me.id]);
+
   const topLevel = filtered.filter((t) => !t.parent_task_id);
   const subtaskCounts = filtered.reduce((acc, t) => {
     if (t.parent_task_id) acc[t.parent_task_id] = (acc[t.parent_task_id] || 0) + 1;
     return acc;
   }, {});
+
+  const hasActiveFilter = filterAssignee !== "all" || filterPriority !== "all" || filterDue !== "all";
+  const clearFilters = () => { setFilterAssignee("all"); setFilterPriority("all"); setFilterDue("all"); };
 
   const handleDrop = (e, stage) => {
     e.preventDefault();
@@ -88,6 +116,74 @@ export default function Board({ board, users, me, onOpenTask, onAddTask, onBoard
             <button className="primary-btn" data-testid="create-task-button" onClick={onAddTask}>
               <CirclePlus size={16}/> New task
             </button>
+          )}
+        </div>
+      </div>
+
+      <div className="filter-bar reveal" data-testid="filter-bar">
+        <div className="filter-group">
+          <FilterIcon size={13}/>
+          <label>
+            Assignee
+            <select value={filterAssignee}
+                    data-testid="filter-assignee"
+                    onChange={(e) => setFilterAssignee(e.target.value)}>
+              <option value="all">Everyone</option>
+              <option value="me">Assigned to me</option>
+              <option value="unassigned">Unassigned</option>
+              {(board.members || []).map((m) => {
+                const u = users.find((x) => x.id === m.user_id);
+                if (!u) return null;
+                return <option key={u.id} value={u.id}>{u.name}</option>;
+              })}
+            </select>
+          </label>
+          <label>
+            Priority
+            <select value={filterPriority} data-testid="filter-priority"
+                    onChange={(e) => setFilterPriority(e.target.value)}>
+              <option value="all">All</option>
+              <option value="High">High</option>
+              <option value="Medium">Medium</option>
+              <option value="Low">Low</option>
+            </select>
+          </label>
+          <label>
+            Due
+            <select value={filterDue} data-testid="filter-due"
+                    onChange={(e) => setFilterDue(e.target.value)}>
+              <option value="all">Anytime</option>
+              <option value="week">This week</option>
+              <option value="month">This month</option>
+              <option value="overdue">Overdue</option>
+              <option value="none">No due date</option>
+            </select>
+          </label>
+        </div>
+        <div className="filter-chips">
+          {filterAssignee !== "all" && (
+            <button className="filter-chip" data-testid="chip-assignee"
+                    onClick={() => setFilterAssignee("all")}>
+              {filterAssignee === "me" ? "Me" : filterAssignee === "unassigned" ? "Unassigned"
+                : users.find((u) => u.id === filterAssignee)?.name || "User"} <X size={11}/>
+            </button>
+          )}
+          {filterPriority !== "all" && (
+            <button className="filter-chip" data-testid="chip-priority"
+                    onClick={() => setFilterPriority("all")}>
+              {filterPriority} <X size={11}/>
+            </button>
+          )}
+          {filterDue !== "all" && (
+            <button className="filter-chip" data-testid="chip-due"
+                    onClick={() => setFilterDue("all")}>
+              {filterDue === "week" ? "This week" : filterDue === "month" ? "This month"
+                : filterDue === "overdue" ? "Overdue" : "No due date"} <X size={11}/>
+            </button>
+          )}
+          {hasActiveFilter && (
+            <button className="filter-chip clear-chip" data-testid="clear-filters"
+                    onClick={clearFilters}>Clear all</button>
           )}
         </div>
       </div>
